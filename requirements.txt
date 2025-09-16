@@ -1,0 +1,6 @@
+streamlit
+python-dotenv
+azure-identity
+azure-keyvault-secrets
+azure-ai-projects
+azure-ai-agents
