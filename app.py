@@ -18,7 +18,7 @@ if is_local():
 @st.cache_resource
 def get_secret_client():
     credential = DefaultAzureCredential()  # uses Managed Identity in Azure; dev uses az login, VS Code, etc.
-    vault_url = os.environ["key-vault-url"]
+    vault_url = os.environ["KEY_VAULT_URL"]
     return SecretClient(vault_url=vault_url, credential=credential)
 
 #cache secret to avoid frequent lookups, allow for rotation
@@ -65,11 +65,10 @@ def main():
     st.title("AI Dinner Planning Agent")
 
     client = AIProjectClient(
-        #endpoint=st.secrets["api"]["azure_endpoint"],
-        endpoint=get_secret("dingen-azure-endpoint"),
+        endpoint=get_secret("DINGEN_AZURE_ENDPOINT"),
         credential=DefaultAzureCredential(),
     )
-    agent_id = st.secrets["api"]["agent_id"]
+    agent_id = get_secret("DINGEN_AGENT_ID")
 
 
     if 'chat_history' not in st.session_state:
