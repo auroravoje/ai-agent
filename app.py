@@ -1,4 +1,5 @@
 import os
+import re
 from dotenv import load_dotenv
 import streamlit as st
 from azure.ai.projects import AIProjectClient
@@ -18,7 +19,9 @@ if is_local():
 @st.cache_resource
 def get_secret_client():
     credential = DefaultAzureCredential()  # uses Managed Identity in Azure; dev uses az login, VS Code, etc.
-    vault_url = os.environ["KEY_VAULT_URL"]
+    vault_url = os.getenv("KEY_VAULT_URL")
+    #os.environ["KEY_VAULT_URL"]
+    print("inside get secret client, vault_url:", vault_url)
     return SecretClient(vault_url=vault_url, credential=credential)
 
 #cache secret to avoid frequent lookups, allow for rotation
@@ -32,13 +35,17 @@ def _get_secret_no_ttl(name, version=None):
 def get_secret(name, version=None, force_refresh=False):
     if is_local():
         # Load from .env or environment variable
+        print("local - getting secret from env:", name)
         return os.environ.get(name)
+    
     else:
         # Load from Azure Key Vault
         if force_refresh:
             _get_secret_no_ttl.cache_clear()
+            name = name.strip().lower().replace("_", "-")
+            print("prod - force refresh - getting secret from key vault:", name)
         return _get_secret_no_ttl(name, version)
-    
+        
 #####################################
 def create_thread(client, agent_id, user_message):
     thread = client.agents.threads.create()
@@ -63,35 +70,39 @@ def get_responses(client, thread_id, run_id):
 
 def main():
     st.title("AI Dinner Planning Agent")
+    
+    agent_id = get_secret("DINGEN_AGENT_ID")
+    print("agent_id", agent_id)
 
     client = AIProjectClient(
         endpoint=get_secret("DINGEN_AZURE_ENDPOINT"),
         credential=DefaultAzureCredential(),
     )
-    agent_id = get_secret("DINGEN_AGENT_ID")
+    print("endpoint", get_secret("DINGEN_AZURE_ENDPOINT"))
+    print("client", client)
 
-    if 'chat_history' not in st.session_state:
-        st.session_state['chat_history'] = []
+    #if 'chat_history' not in st.session_state:
+    #    st.session_state['chat_history'] = []
 
-    user_input = st.chat_input("Enter your message...")
+    #user_input = st.chat_input("Enter your message...")
 
-    if user_input:
-        # Display user message in chat
-        st.session_state['chat_history'].append(('user', user_input))
+    #if user_input:
+    #    # Display user message in chat
+    #    st.session_state['chat_history'].append(('user', user_input))
 
-        # Send user message to agent and get a response
-        thread_id, run_id = create_thread(client, agent_id, user_input)
-        if thread_id and run_id:
-            responses = get_responses(client, thread_id, run_id)
-            for response in responses:
-                # Append response to chat history
-                st.session_state['chat_history'].append(('assistant', response))
-            # Display chat history
-            for role, message in st.session_state['chat_history']:
-                if role == 'user':
-                    st.chat_message("user").markdown(message)
-                else:
-                    st.chat_message("assistant").markdown(message)
+    #    # Send user message to agent and get a response
+    #    thread_id, run_id = create_thread(client, agent_id, user_input)
+    #    if thread_id and run_id:
+    #        responses = get_responses(client, thread_id, run_id)
+    #        for response in responses:
+    #            # Append response to chat history
+    #            st.session_state['chat_history'].append(('assistant', response))
+    #        # Display chat history
+    #        for role, message in st.session_state['chat_history']:
+    #            if role == 'user':
+    #                st.chat_message("user").markdown(message)
+    #            else:
+    #                st.chat_message("assistant").markdown(message)
 
 if __name__ == "__main__":
     main()
