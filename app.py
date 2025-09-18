@@ -15,29 +15,29 @@ if is_local():
     load_dotenv()
 
 
-#@st.cache_resource
-#def get_secret_client():
-#    credential = DefaultAzureCredential()  # uses Managed Identity in Azure; dev uses az login, VS Code, etc.
-#    vault_url = os.environ["KEY_VAULT_URL"]
-#    return SecretClient(vault_url=vault_url, credential=credential)
+@st.cache_resource
+def get_secret_client():
+    credential = DefaultAzureCredential()  # uses Managed Identity in Azure; dev uses az login, VS Code, etc.
+    vault_url = os.environ["KEY_VAULT_URL"]
+    return SecretClient(vault_url=vault_url, credential=credential)
 
 #cache secret to avoid frequent lookups, allow for rotation
-#@lru_cache(maxsize=64)
-#def _get_secret_no_ttl(name, version=None):
-#    client = get_secret_client()
-#    if version:
-#        return client.get_secret(name, version=version).value
-#    return client.get_secret(name).value
-#
-#def get_secret(name, version=None, force_refresh=False):
-#    if is_local():
-#        # Load from .env or environment variable
-#        return os.environ.get(name)
-#    else:
-#        # Load from Azure Key Vault
-#        if force_refresh:
-#            _get_secret_no_ttl.cache_clear()
-#        return _get_secret_no_ttl(name, version)
+@lru_cache(maxsize=64)
+def _get_secret_no_ttl(name, version=None):
+    client = get_secret_client()
+    if version:
+        return client.get_secret(name, version=version).value
+    return client.get_secret(name).value
+
+def get_secret(name, version=None, force_refresh=False):
+    if is_local():
+        # Load from .env or environment variable
+        return os.environ.get(name)
+    else:
+        # Load from Azure Key Vault
+        if force_refresh:
+            _get_secret_no_ttl.cache_clear()
+        return _get_secret_no_ttl(name, version)
     
 #####################################
 def create_thread(client, agent_id, user_message):
@@ -65,13 +65,10 @@ def main():
     st.title("AI Dinner Planning Agent")
 
     client = AIProjectClient(
-        endpoint=os.getenv("DINGEN_AZURE_ENDPOINT"),
-        #get_secret("DINGEN_AZURE_ENDPOINT"),
+        endpoint=get_secret("DINGEN_AZURE_ENDPOINT"),
         credential=DefaultAzureCredential(),
     )
-    #agent_id = get_secret("DINGEN_AGENT_ID")
-    agent_id = os.getenv("DINGEN_AGENT_ID")
-
+    agent_id = get_secret("DINGEN_AGENT_ID")
 
     if 'chat_history' not in st.session_state:
         st.session_state['chat_history'] = []
@@ -80,7 +77,6 @@ def main():
 
     if user_input:
         # Display user message in chat
-        #st.chat_message("user").markdown(user_input)
         st.session_state['chat_history'].append(('user', user_input))
 
         # Send user message to agent and get a response
