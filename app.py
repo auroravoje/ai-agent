@@ -19,7 +19,7 @@ if is_local():
 @st.cache_resource
 def get_secret_client():
     credential = DefaultAzureCredential()  # uses Managed Identity in Azure; dev uses az login, VS Code, etc.
-    vault_url = os.getenv("KEY_VAULT_URL")
+    vault_url = os.getenv("key-vault-url")
     #os.environ["KEY_VAULT_URL"]
     print("inside get secret client, vault_url:", vault_url)
     return SecretClient(vault_url=vault_url, credential=credential)
@@ -42,7 +42,7 @@ def get_secret(name, version=None, force_refresh=False):
         # Load from Azure Key Vault
         if force_refresh:
             _get_secret_no_ttl.cache_clear()
-            name = name.strip().lower().replace("_", "-")
+            #name = name.strip().lower().replace("_", "-")
             print("prod - force refresh - getting secret from key vault:", name)
         return _get_secret_no_ttl(name, version)
         
@@ -70,18 +70,18 @@ def get_responses(client, thread_id, run_id):
 
 def main():
     st.title("AI Dinner Planning Agent")
-    
-    agent_id = get_secret("DINGEN_AGENT_ID")
-    st.write("agent_id:") 
+
+    agent_id = get_secret("dingen-agent-id")
+    st.write("agent_id:")
     st.write(agent_id)
 
     client = AIProjectClient(
-        endpoint=get_secret("DINGEN_AZURE_ENDPOINT"),
+        endpoint=get_secret("dingen-azure-endpoint"),
         credential=DefaultAzureCredential(),
     )
-    st.write("endpoint:") 
-    st.write(get_secret("DINGEN_AZURE_ENDPOINT"))
-    
+    st.write("endpoint:")
+    st.write(get_secret("dingen-azure-endpoint"))
+
     st.write("client:")
     st.write(client)
 
