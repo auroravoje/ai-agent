@@ -72,14 +72,18 @@ def main():
     st.title("AI Dinner Planning Agent")
     
     agent_id = get_secret("DINGEN_AGENT_ID")
-    print("agent_id", agent_id)
+    st.write("agent_id:") 
+    st.write(agent_id)
 
     client = AIProjectClient(
         endpoint=get_secret("DINGEN_AZURE_ENDPOINT"),
         credential=DefaultAzureCredential(),
     )
-    print("endpoint", get_secret("DINGEN_AZURE_ENDPOINT"))
-    print("client", client)
+    st.write("endpoint:") 
+    st.write(get_secret("DINGEN_AZURE_ENDPOINT"))
+    
+    st.write("client:")
+    st.write(client)
 
     #if 'chat_history' not in st.session_state:
     #    st.session_state['chat_history'] = []
