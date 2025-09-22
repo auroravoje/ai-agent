@@ -71,16 +71,18 @@ def get_responses(client, thread_id, run_id):
 def main():
     st.title("AI Dinner Planning Agent")
 
-    agent_id = get_secret("dingen-agent-id")
+    #agent_id = get_secret("dingen_agent_id")
+    agent_id = os.getenv("dingen_agent_id")
     st.write("agent_id:")
     st.write(agent_id)
 
     client = AIProjectClient(
-        endpoint=get_secret("dingen-azure-endpoint"),
+        #endpoint=get_secret("dingen-azure-endpoint"),
+        endpoint=os.getenv("dingen_azure_endpoint"),
         credential=DefaultAzureCredential(),
     )
     st.write("endpoint:")
-    st.write(get_secret("dingen-azure-endpoint"))
+    st.write(os.getenv("dingen_azure_endpoint"))
 
     st.write("client:")
     st.write(client)
