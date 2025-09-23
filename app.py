@@ -27,29 +27,38 @@ def create_thread(client, agent_id, user_message):
         return None, None
     return thread.id, run.id
 
+def send_user_message(client, agent_id, user_message):
+    """Create or reuse a thread for this Streamlit session, post the user message, and create a run.
+
+    Stores `thread_id` and `run_id` in `st.session_state` so the same thread is reused across reruns.
+    """
+    # create thread once per session
+    if 'thread_id' not in st.session_state:
+        thread = client.agents.threads.create()
+        st.session_state['thread_id'] = thread.id
+
+    # post user message to that thread
+    client.agents.messages.create(
+        thread_id=st.session_state['thread_id'],
+        role="user",
+        content=user_message,
+    )
+
+    # create and process a run for that message
+    run = client.agents.runs.create_and_process(
+        thread_id=st.session_state['thread_id'],
+        agent_id=agent_id,
+    )
+    st.session_state['run_id'] = run.id
+    return st.session_state['thread_id'], run.id
+
 def get_responses(client, thread_id, run_id):
     messages = client.agents.messages.list(thread_id=thread_id, order=ListSortOrder.ASCENDING)
     responses = []
     for message in messages:
         if message.run_id == run_id and message.text_messages:
-            # message.role may be an enum (e.g. MessageRole.AGENT) or a string like 'agent'
-            role = getattr(message, 'role', '')
-            try:
-                # enum-like roles have a .name attribute
-                role_name = role.name.lower() if hasattr(role, 'name') else str(role).lower()
-            except Exception:
-                role_name = str(role).lower()
-
-            # Map Azure/SDK role names to user-facing names (keep 'assistant' for agent responses)
-            if role_name in ('agent', 'assistant'):
-                display_role = 'assistant'
-            elif role_name == 'user':
-                display_role = 'user'
-            else:
-                display_role = role_name
-
-            responses.append(f"{display_role}: {message.text_messages[-1].text.value}")
-    return responses
+            responses.append(f"{message.role}: {message.text_messages[-1].text.value}")
+    return responses 
 
 def main():
     st.markdown("""
@@ -90,6 +99,13 @@ def main():
     """,
     unsafe_allow_html=True,
 )
+    with st.sidebar:
+        st.write("## Controls")
+        st.write("Manage your session.")
+        if st.button("Reset conversation", key="reset"):
+            for k in ("thread_id", "run_id", "chat_history"):
+                st.session_state.pop(k, None)
+            st.experimental_rerun()
 
     st.title("AI Dinner Planning Agent")
 
@@ -105,28 +121,21 @@ def main():
         st.session_state['chat_history'] = []
 
     user_input = st.chat_input("Enter your message...")
+
     
     if user_input:
         # Display user message in chat
         st.session_state['chat_history'].append(('user', user_input))
         # Send user message to agent and get a response
-        thread_id, run_id = create_thread(client, agent_id, user_input)
+        thread_id, run_id = send_user_message(client, agent_id, user_input)
         if thread_id and run_id:
             responses = get_responses(client, thread_id, run_id)
             for response in responses:
-                # Append response to chat history (response string like 'assistant: text' or just text)
-                if isinstance(response, str) and ':' in response:
-                    role_label, text = response.split(':', 1)
-                    role_label = role_label.strip()
-                    text = text.strip()
-                else:
-                    role_label = 'assistant'
-                    text = response if isinstance(response, str) else str(response)
-                st.session_state['chat_history'].append((role_label, text))
-
-            # Display chat history using cards
+                # Append response to chat history
+                st.session_state['chat_history'].append(('assistant', response))
+            # Display chat history
             for role, message in st.session_state['chat_history']:
-                if role.lower() == 'user':
+                if role == 'user':
                     st.chat_message("user").markdown(message)
                 else:
                     st.chat_message("assistant").markdown(message)
