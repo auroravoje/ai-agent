@@ -1,11 +1,8 @@
 import os
-import re
 from dotenv import load_dotenv
 import streamlit as st
-from streamlit_styles import apply_styles, assistant_card, user_card, begin_glass, end_glass
 from azure.ai.projects import AIProjectClient
 from azure.identity import DefaultAzureCredential
-from azure.keyvault.secrets import SecretClient
 from functools import lru_cache
 from azure.ai.agents.models import ListSortOrder
 
