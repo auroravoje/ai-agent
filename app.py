@@ -3,7 +3,6 @@ from dotenv import load_dotenv
 import streamlit as st
 from azure.ai.projects import AIProjectClient
 from azure.identity import DefaultAzureCredential
-from functools import lru_cache
 from azure.ai.agents.models import ListSortOrder
 
 # Detect local vs deployed
@@ -126,13 +125,11 @@ def main():
                 st.session_state['chat_history'].append((role_label, text))
 
             # Display chat history using cards
-            st.markdown('<div class="chat-stack">', unsafe_allow_html=True)
             for role, message in st.session_state['chat_history']:
                 if role.lower() == 'user':
-                    st.markdown(user_card(message), unsafe_allow_html=True)
+                    st.chat_message("user").markdown(message)
                 else:
-                    st.markdown(assistant_card(message), unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-
+                    st.chat_message("assistant").markdown(message)
+            
 if __name__ == "__main__":
     main()
