@@ -2,6 +2,7 @@ import os
 import re
 from dotenv import load_dotenv
 import streamlit as st
+from streamlit_styles import apply_styles, assistant_card, user_card, begin_glass, end_glass
 from azure.ai.projects import AIProjectClient
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
@@ -15,36 +16,6 @@ def is_local():
 if is_local():
     load_dotenv()
 
-
-@st.cache_resource
-def get_secret_client():
-    credential = DefaultAzureCredential()  # uses Managed Identity in Azure; dev uses az login, VS Code, etc.
-    vault_url = os.getenv("key-vault-url")
-    #os.environ["KEY_VAULT_URL"]
-    print("inside get secret client, vault_url:", vault_url)
-    return SecretClient(vault_url=vault_url, credential=credential)
-
-#cache secret to avoid frequent lookups, allow for rotation
-@lru_cache(maxsize=64)
-def _get_secret_no_ttl(name, version=None):
-    client = get_secret_client()
-    if version:
-        return client.get_secret(name, version=version).value
-    return client.get_secret(name).value
-
-def get_secret(name, version=None, force_refresh=False):
-    if is_local():
-        # Load from .env or environment variable
-        print("local - getting secret from env:", name)
-        return os.environ.get(name)
-    
-    else:
-        # Load from Azure Key Vault
-        if force_refresh:
-            _get_secret_no_ttl.cache_clear()
-            #name = name.strip().lower().replace("_", "-")
-            print("prod - force refresh - getting secret from key vault:", name)
-        return _get_secret_no_ttl(name, version)
         
 #####################################
 def create_thread(client, agent_id, user_message):
@@ -65,31 +36,80 @@ def get_responses(client, thread_id, run_id):
     responses = []
     for message in messages:
         if message.run_id == run_id and message.text_messages:
-            responses.append(f"{message.role}: {message.text_messages[-1].text.value}")
-    return responses 
+            # message.role may be an enum (e.g. MessageRole.AGENT) or a string like 'agent'
+            role = getattr(message, 'role', '')
+            try:
+                # enum-like roles have a .name attribute
+                role_name = role.name.lower() if hasattr(role, 'name') else str(role).lower()
+            except Exception:
+                role_name = str(role).lower()
+
+            # Map Azure/SDK role names to user-facing names (keep 'assistant' for agent responses)
+            if role_name in ('agent', 'assistant'):
+                display_role = 'assistant'
+            elif role_name == 'user':
+                display_role = 'user'
+            else:
+                display_role = role_name
+
+            responses.append(f"{display_role}: {message.text_messages[-1].text.value}")
+    return responses
 
 def main():
+    st.markdown("""
+                <style> 
+                .stApp { 
+                    background: 
+                linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.35)), 
+                url("https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1920&q=80") 
+                no-repeat center center fixed; 
+                background-size: cover; } 
+                </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown(
+    """
+    <style>
+    /* translucent overlay on whole app */
+    .stApp, [data-testid="stAppViewContainer"] {
+      position: relative;
+    }
+    .stApp::before,
+    [data-testid="stAppViewContainer"]::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: rgba(255,255,255,0.40); /* adjust alpha for transparency */
+      backdrop-filter: blur(1px);         /* subtle blur */
+      z-index: 0;
+      pointer-events: none;
+    }
+    /* push Streamlit content above the overlay */
+    .reportview-container, .main, .block-container, 
+    .stApp, [data-testid="stAppViewContainer"] > div {
+      position: relative;
+      z-index: 1;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
     st.title("AI Dinner Planning Agent")
 
-    #agent_id = get_secret("dingen_agent_id")
     agent_id = os.getenv("dingen_agent_id")
-    #st.write("agent_id:")
-    #st.write(agent_id)
+
 
     client = AIProjectClient(
-        #endpoint=get_secret("dingen-azure-endpoint"),
         endpoint=os.getenv("dingen_azure_endpoint"),
         credential=DefaultAzureCredential(),
     )
-    #st.write("endpoint:")
-    #st.write(os.getenv("dingen_azure_endpoint"))
-#
-    #st.write("client:")
-    #st.write(client)
-
+    
     if 'chat_history' not in st.session_state:
         st.session_state['chat_history'] = []
+
     user_input = st.chat_input("Enter your message...")
+    
     if user_input:
         # Display user message in chat
         st.session_state['chat_history'].append(('user', user_input))
@@ -98,14 +118,24 @@ def main():
         if thread_id and run_id:
             responses = get_responses(client, thread_id, run_id)
             for response in responses:
-                # Append response to chat history
-                st.session_state['chat_history'].append(('assistant', response))
-            # Display chat history
-            for role, message in st.session_state['chat_history']:
-                if role == 'user':
-                    st.chat_message("user").markdown(message)
+                # Append response to chat history (response string like 'assistant: text' or just text)
+                if isinstance(response, str) and ':' in response:
+                    role_label, text = response.split(':', 1)
+                    role_label = role_label.strip()
+                    text = text.strip()
                 else:
-                    st.chat_message("assistant").markdown(message)
+                    role_label = 'assistant'
+                    text = response if isinstance(response, str) else str(response)
+                st.session_state['chat_history'].append((role_label, text))
+
+            # Display chat history using cards
+            st.markdown('<div class="chat-stack">', unsafe_allow_html=True)
+            for role, message in st.session_state['chat_history']:
+                if role.lower() == 'user':
+                    st.markdown(user_card(message), unsafe_allow_html=True)
+                else:
+                    st.markdown(assistant_card(message), unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
