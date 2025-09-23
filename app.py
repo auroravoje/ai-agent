@@ -73,42 +73,39 @@ def main():
 
     #agent_id = get_secret("dingen_agent_id")
     agent_id = os.getenv("dingen_agent_id")
-    st.write("agent_id:")
-    st.write(agent_id)
+    #st.write("agent_id:")
+    #st.write(agent_id)
 
     client = AIProjectClient(
         #endpoint=get_secret("dingen-azure-endpoint"),
         endpoint=os.getenv("dingen_azure_endpoint"),
         credential=DefaultAzureCredential(),
     )
-    st.write("endpoint:")
-    st.write(os.getenv("dingen_azure_endpoint"))
+    #st.write("endpoint:")
+    #st.write(os.getenv("dingen_azure_endpoint"))
+#
+    #st.write("client:")
+    #st.write(client)
 
-    st.write("client:")
-    st.write(client)
-
-    #if 'chat_history' not in st.session_state:
-    #    st.session_state['chat_history'] = []
-
-    #user_input = st.chat_input("Enter your message...")
-
-    #if user_input:
-    #    # Display user message in chat
-    #    st.session_state['chat_history'].append(('user', user_input))
-
-    #    # Send user message to agent and get a response
-    #    thread_id, run_id = create_thread(client, agent_id, user_input)
-    #    if thread_id and run_id:
-    #        responses = get_responses(client, thread_id, run_id)
-    #        for response in responses:
-    #            # Append response to chat history
-    #            st.session_state['chat_history'].append(('assistant', response))
-    #        # Display chat history
-    #        for role, message in st.session_state['chat_history']:
-    #            if role == 'user':
-    #                st.chat_message("user").markdown(message)
-    #            else:
-    #                st.chat_message("assistant").markdown(message)
+    if 'chat_history' not in st.session_state:
+        st.session_state['chat_history'] = []
+    user_input = st.chat_input("Enter your message...")
+    if user_input:
+        # Display user message in chat
+        st.session_state['chat_history'].append(('user', user_input))
+        # Send user message to agent and get a response
+        thread_id, run_id = create_thread(client, agent_id, user_input)
+        if thread_id and run_id:
+            responses = get_responses(client, thread_id, run_id)
+            for response in responses:
+                # Append response to chat history
+                st.session_state['chat_history'].append(('assistant', response))
+            # Display chat history
+            for role, message in st.session_state['chat_history']:
+                if role == 'user':
+                    st.chat_message("user").markdown(message)
+                else:
+                    st.chat_message("assistant").markdown(message)
 
 if __name__ == "__main__":
     main()
