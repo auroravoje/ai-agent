@@ -43,32 +43,3 @@ def apply_style_blur():
     unsafe_allow_html=True,
 )
 
-################# per now unused #####################
-def apply_styles(css_path: str = "assets/styles.css"):
-    """Load and inject CSS from a file into Streamlit app."""
-    p = Path(css_path)
-    if not p.exists():
-        st.warning(f"Stylesheet not found: {css_path}")
-        return
-    css = p.read_text()
-    st.markdown(f"<style>\n{css}\n</style>", unsafe_allow_html=True)
-
-
-def assistant_card(text: str) -> str:
-    """Return HTML string for assistant message card."""
-    return f'<div class="assistant-card">{text}</div>'
-
-
-def user_card(text: str) -> str:
-    """Return HTML string for user message card."""
-    return f'<div class="user-card">{text}</div>'
-
-
-def begin_glass():
-    """Return opening tag for glass panel."""
-    return '<div class="glass-panel">'
-
-
-def end_glass():
-    """Return closing tag for glass panel."""
-    return '</div>'
