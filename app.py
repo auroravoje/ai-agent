@@ -19,6 +19,7 @@ def is_local() -> bool:
 if is_local():
     load_dotenv()
 
+# this is the sme version
         
 def create_thread(client: AIProjectClient, agent_id: str, user_message: str) -> Tuple[Optional[str], Optional[str]]:
     """Create a new thread, post a user message, and start processing a run.
