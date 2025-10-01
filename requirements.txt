@@ -4,3 +4,6 @@ azure-identity
 azure-keyvault-secrets
 azure-ai-projects
 azure-ai-agents
+gspread
+oauth2client
+pandas
