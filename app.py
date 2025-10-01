@@ -6,6 +6,7 @@ from azure.identity import DefaultAzureCredential
 from azure.ai.agents.models import FileSearchTool, FilePurpose
 from streamlit_styles import apply_style_background, apply_style_blur
 from utils import df_to_temp_json, get_recipe_data, is_local, get_responses, send_user_message, normalize_df_for_indexing
+from user_logic_apps import AzureLogicAppTool
 import pandas as pd
 from agent_instructions import primary_instructions, primary_description
 # Detect local vs deployed
@@ -49,6 +50,16 @@ def main() -> None:
 
         # create agent pointing to the created vector store
         file_search = FileSearchTool(vector_store_ids=[st.session_state["vector_store_id"]])
+
+        # Register the logic app for sending emails
+        logic_app_tool = AzureLogicAppTool(subscription_id=os.getenv("azure_subscription_id"),
+                                           resource_group=os.getenv("azure_resource_group_name"))
+        logic_app_tool.register_logic_app(os.getenv("logic_app_name"), os.getenv("trigger_name"))
+        st.success("Registered logic app")
+        
+
+
+        #create agent
         agent = project_client.agents.create_agent(
             model="gpt-4o",
             name="dinner-planning-agent",
@@ -58,6 +69,9 @@ def main() -> None:
             tool_resources=file_search.resources,
         )
         st.session_state["agent_id"] = getattr(agent, "id", None) or agent.get("id")
+
+        
+
         #st.success(f"Created agent {st.session_state['agent_id']} and vector store {st.session_state['vector_store_id']}")
     else:
         # reuse ids stored in session state
