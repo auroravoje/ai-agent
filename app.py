@@ -3,10 +3,11 @@ from dotenv import load_dotenv
 import streamlit as st
 from azure.ai.projects import AIProjectClient
 from azure.identity import DefaultAzureCredential
-from azure.ai.agents.models import FileSearchTool, FilePurpose
+from azure.ai.agents.models import FileSearchTool, FilePurpose, ToolSet, FunctionTool
 from streamlit_styles import apply_style_background, apply_style_blur
 from utils import df_to_temp_json, get_recipe_data, is_local, get_responses, send_user_message, normalize_df_for_indexing
-from user_logic_apps import AzureLogicAppTool
+from user_logic_apps import AzureLogicAppTool, create_send_email_function
+from user_functions import fetch_current_datetime
 import pandas as pd
 from agent_instructions import primary_instructions, primary_description
 # Detect local vs deployed
@@ -52,22 +53,45 @@ def main() -> None:
         file_search = FileSearchTool(vector_store_ids=[st.session_state["vector_store_id"]])
 
         # Register the logic app for sending emails
+        logic_app_name = os.getenv("logic_app_name")
+        trigger_name = os.getenv("trigger_name")
         logic_app_tool = AzureLogicAppTool(subscription_id=os.getenv("azure_subscription_id"),
                                            resource_group=os.getenv("azure_resource_group_name"))
-        logic_app_tool.register_logic_app(os.getenv("logic_app_name"), os.getenv("trigger_name"))
-        st.success("Registered logic app")
+        logic_app_tool.register_logic_app(logic_app_name, trigger_name)
+
+        # Create the specialized "send_email_via_logic_app" function
         
-
-
+        send_email_func = create_send_email_function(logic_app_tool, logic_app_name)
+        send_email_func.__name__ = "send_email_via_logic_app"
+        
+        # Prepare the function tools for the agent
+        functions_to_use = {fetch_current_datetime, send_email_func}
+        functions = FunctionTool(functions=functions_to_use)
+        toolset = ToolSet()
+        toolset.add(functions)
+        
+        
         #create agent
-        agent = project_client.agents.create_agent(
+        agents_client = project_client.agents
+        agents_client.enable_auto_function_calls(toolset)
+        
+        # Create the agent and attach both the file-search tool and the function tool definitions.
+        # If FunctionTool exposes resources, include them; otherwise use file_search.resources.
+        combined_tool_resources = file_search.resources
+        if hasattr(functions, "resources") and functions.resources:
+            combined_tool_resources = file_search.resources + functions.resources
+
+
+        agent = agents_client.create_agent(
             model="gpt-4o",
             name="dinner-planning-agent",
             instructions=primary_instructions,
             description=primary_description,
-            tools=file_search.definitions,
-            tool_resources=file_search.resources,
+            tools=file_search.definitions + functions.definitions,
+            tool_resources=combined_tool_resources,#file_search.resources,
+            toolset=toolset    
         )
+
         st.session_state["agent_id"] = getattr(agent, "id", None) or agent.get("id")
 
         
