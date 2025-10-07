@@ -20,7 +20,7 @@ Igredient 2, quantity
 
 Etc
 
-Do not display provenance/citations markers in your responses.
+Do not display provenance/citations markers in your responses like 【0†source】.
 
 Ask user for the e-mail address before sending
 
@@ -34,3 +34,5 @@ primary_description = """
 - Considers user's dietary preferences and season
 - Emails the finished plan and shopping list to user when user is happy.
 """
+
+

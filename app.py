@@ -3,11 +3,9 @@ from dotenv import load_dotenv
 import streamlit as st
 from azure.ai.projects import AIProjectClient
 from azure.identity import DefaultAzureCredential
-from azure.ai.agents.models import FileSearchTool, FilePurpose, ToolSet, FunctionTool
-from streamlit_styles import apply_style_background, apply_style_blur
-from utils import df_to_temp_json, get_recipe_data, is_local, get_responses, send_user_message, normalize_df_for_indexing
-from user_logic_apps import AzureLogicAppTool, create_send_email_function
-from user_functions import fetch_current_datetime
+from azure.ai.agents.models import FileSearchTool, FilePurpose, ConnectedAgentTool
+from streamlit_styles import * 
+from utils import * 
 import pandas as pd
 from agent_instructions import primary_instructions, primary_description
 # Detect local vs deployed
@@ -52,45 +50,24 @@ def main() -> None:
         # create agent pointing to the created vector store
         file_search = FileSearchTool(vector_store_ids=[st.session_state["vector_store_id"]])
 
-        # Register the logic app for sending emails
-        logic_app_name = os.getenv("logic_app_name")
-        trigger_name = os.getenv("trigger_name")
-        logic_app_tool = AzureLogicAppTool(subscription_id=os.getenv("azure_subscription_id"),
-                                           resource_group=os.getenv("azure_resource_group_name"))
-        logic_app_tool.register_logic_app(logic_app_name, trigger_name)
+        # Create the agent with the file-search tool definition.
+        
+        
 
-        # Create the specialized "send_email_via_logic_app" function
-        
-        send_email_func = create_send_email_function(logic_app_tool, logic_app_name)
-        send_email_func.__name__ = "send_email_via_logic_app"
-        
-        # Prepare the function tools for the agent
-        functions_to_use = {fetch_current_datetime, send_email_func}
-        functions = FunctionTool(functions=functions_to_use)
-        toolset = ToolSet()
-        toolset.add(functions)
-        
-        
-        #create agent
-        agents_client = project_client.agents
-        agents_client.enable_auto_function_calls(toolset)
-        
-        # Create the agent and attach both the file-search tool and the function tool definitions.
-        # If FunctionTool exposes resources, include them; otherwise use file_search.resources.
-        combined_tool_resources = file_search.resources
-        if hasattr(functions, "resources") and functions.resources:
-            combined_tool_resources = file_search.resources + functions.resources
-
-
-        agent = agents_client.create_agent(
+        email_agent = project_client.agents.get_agent(os.getenv("email_agent_id"))
+        connected_agent = ConnectedAgentTool(id=email_agent.id, 
+                                             name=email_agent.name, 
+                                             description=email_agent.description)
+        #main agent
+        agent = project_client.agents.create_agent(
             model="gpt-4o",
             name="dinner-planning-agent",
             instructions=primary_instructions,
             description=primary_description,
-            tools=file_search.definitions + functions.definitions,
-            tool_resources=combined_tool_resources,#file_search.resources,
-            toolset=toolset    
+            tools=file_search.definitions + connected_agent.definitions,
+            tool_resources=file_search.resources,   
         )
+        
 
         st.session_state["agent_id"] = getattr(agent, "id", None) or agent.get("id")
 
@@ -116,7 +93,7 @@ def main() -> None:
 
     if page == "Create Dinner Plan":
         
-        st.title("AI Dinner Planning Agent - On The Run")
+        st.title("🤖 AI Dinner Planning Agent 🫜")
 
        
         if 'chat_history' not in st.session_state:
@@ -139,6 +116,7 @@ def main() -> None:
                     responses = get_responses(project_client, thread_id, run_id)
                     for response in responses:
                         st.session_state['chat_history'].append(('assistant', response))
+                       
             except Exception as e:
                 # Record an assistant message describing the failure so the user sees feedback in chat
                 err_msg = f"Agent request failed: {e}"
@@ -153,7 +131,7 @@ def main() -> None:
         
     
     elif page == "View Recipes":
-        st.title("Recipe Viewer")
+        st.title("📒 Recipe Viewer")
         st.info("Recipe viewing functionality is under development.") 
         st.dataframe(recipes_data)  
         st.title("Dinner History")
@@ -162,7 +140,7 @@ def main() -> None:
     with st.sidebar:
         st.write("## Controls")
         st.write("Manage your session.")
-        if st.button("Reset conversation", key="reset"):
+        if st.button("🔁 Reset conversation", key="reset"):
             # remove only conversation-related keys (keep session alive)
             for k in ("thread_id", "run_id", "chat_history"):
                 st.session_state.pop(k, None)
@@ -171,10 +149,10 @@ def main() -> None:
             # Prefer immediate rerun if available in Streamlit; otherwise continue the run so UI renders
             if hasattr(st, "experimental_rerun"):
                 st.experimental_rerun()  
-    
+        
       
     # explicit cleanup button to delete created resources when you want
-        if st.button("Delete resources", key="cleanup"):
+        if st.button("❌ Delete resources", key="cleanup"):
             deleted = {"agent": False, "vector_store": False, "file": False}
             try:
                 if st.session_state.get("agent_id"):
