@@ -1,14 +1,12 @@
 import os
 import tempfile
-from typing import Optional, Tuple, List, Any
+from typing import Optional, Tuple, List
 import streamlit as st
 from azure.ai.projects import AIProjectClient
 from azure.ai.agents.models import ListSortOrder
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
-import json
-from azure.ai.agents.models import FilePurpose
 
 def is_local() -> bool:
     """Return True when running in a local/dev environment.
@@ -205,3 +203,6 @@ def safe_rerun() -> None:
     except Exception:
         # last-resort fallback
         st.stop()
+
+
+ 
