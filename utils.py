@@ -1,5 +1,7 @@
 import os
 import tempfile
+import json
+import base64
 from typing import Optional, Tuple, List
 import streamlit as st
 from azure.ai.projects import AIProjectClient
@@ -15,6 +17,65 @@ def is_local() -> bool:
     of a local .env file to determine whether the app is running locally.
     """
     return os.environ.get("LOCAL_DEV") == "1" or os.path.exists(".env")
+
+def _materialize_service_account_file() -> str:
+    """
+    Return a filesystem path to the Google service account JSON.
+    Accepts any of these:
+      1. google_app_credentials points to an existing file path.
+      2. google_app_credentials holds raw JSON (starts with '{').
+      3. google_app_credentials holds base64 of the JSON.
+      4. google_app_credentials_json (alt var) with raw or base64 JSON.
+    Writes a temp file if needed (cached in st.session_state to avoid duplicates).
+    """
+    cache_key = "_svc_acct_path"
+    if cache_key in st.session_state:
+        return st.session_state[cache_key]
+
+    val_primary = os.getenv("google_app_credentials", "")
+    val_alt = os.getenv("google_app_credentials_json", "")
+
+    def try_decode(raw: str) -> Optional[str]:
+        raw = raw.strip()
+        if not raw:
+            return None
+        # Raw JSON
+        if raw.startswith("{"):
+            return raw
+        # Possibly base64
+        try:
+            decoded = base64.b64decode(raw).decode("utf-8")
+            if decoded.strip().startswith("{"):
+                return decoded
+        except Exception:
+            pass
+        return None
+
+    # 1. Existing file path?
+    if val_primary and os.path.isfile(val_primary):
+        st.session_state[cache_key] = val_primary
+        return val_primary
+
+    # 2/3: Try primary as JSON / base64
+    json_text = try_decode(val_primary) or try_decode(val_alt)
+    if not json_text:
+        raise ValueError("Google service account key not provided. Set google_app_credentials (path or JSON) "
+                         "or google_app_credentials_json (JSON/base64).")
+
+    # Validate JSON parses
+    try:
+        parsed = json.loads(json_text)
+        if "client_email" not in parsed:
+            raise ValueError("Service account JSON missing client_email.")
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid service account JSON: {e}") from e
+
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
+    with open(tmp.name, "w", encoding="utf-8") as f:
+        f.write(json_text)
+    st.session_state[cache_key] = tmp.name
+    return tmp.name
+
 
 
 @st.cache_resource
@@ -43,8 +104,13 @@ def get_recipe_data(key_file: Optional[str] = None, sheet_id: Optional[str] = No
         ValueError: If required identifiers are missing.
         Exception: Other errors from the Google API will propagate.
     """
-    KEY_FILE = key_file or os.getenv("google_app_credentials")
+    KEY_FILE = key_file or os.getenv("google_app_credentials") or os.getenv("google_app_credentials_json")
     sheet_id = sheet_id or os.getenv("google_sheet_id")
+
+    if not sheet_id:
+        raise ValueError("Google sheet id is not provided (google_sheet_id).")
+    
+    KEY_FILE = _materialize_service_account_file()  
 
     if not KEY_FILE:
         raise ValueError("Google service account key file path is not provided (google_app_credentials).")
