@@ -106,7 +106,7 @@ def get_recipe_data(key_file: Optional[str] = None, sheet_id: Optional[str] = No
     """
     KEY_FILE = key_file or os.getenv("google_app_credentials") or os.getenv("google_app_credentials_json")
     sheet_id = sheet_id or os.getenv("google_sheet_id")
-
+    
     if not sheet_id:
         raise ValueError("Google sheet id is not provided (google_sheet_id).")
     
@@ -172,17 +172,23 @@ def normalize_df_for_indexing(df: pd.DataFrame, source: str) -> pd.DataFrame:
             df['doc_id'] = df.index.astype(str)
 
         # choose text columns to combine into `content` (common recipe-like candidates)
-        candidates = ['instructions', 'description', 'notes', 'title', 'recipe', 'ingredients']
+        candidates = ['Rett', 'Tidsforbruk min', 'Lenke', 'Sesong', 'Preferanse', 'uke', 'dag']
         text_cols = [c for c in candidates if c in df.columns]
         if not text_cols:
-            # fallback: use all object/string columns
+            # fallback: use all object-like columns
             text_cols = [c for c in df.columns if df[c].dtype == object]
+
         if not text_cols:
             # last resort: stringify entire row
             df['content'] = df.astype(str).agg(' '.join, axis=1)
         else:
-            df['content'] = df[text_cols].fillna('').agg(' '.join, axis=1)
-
+            # Fill NaN, cast everything to str, then join
+            df['content'] = (
+                df[text_cols]
+                .fillna('')
+                .astype(str)
+                .agg(' '.join, axis=1)
+            )
         # preserve original metadata as a dict per row (excluding the computed content)
         meta_cols = [c for c in df.columns if c not in ('content',)]
         df['raw_metadata'] = df[meta_cols].apply(lambda r: r.to_dict(), axis=1)
