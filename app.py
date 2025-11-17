@@ -5,10 +5,10 @@ from azure.ai.projects import AIProjectClient
 from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
 
+import utils
 from streamlit_styles import apply_style_background, apply_style_blur
-from utils import *
 
-if is_local():
+if utils.is_local():
     load_dotenv()
 
 
@@ -59,9 +59,9 @@ def main() -> None:
         # Display user message in chat
         st.session_state["chat_history"].append(("user", user_input))
         # Send user message to agent and get a response
-        thread_id, run_id = send_user_message(client, agent_id, user_input)
+        thread_id, run_id = utils.send_user_message(client, agent_id, user_input)
         if thread_id and run_id:
-            responses = get_responses(client, thread_id, run_id)
+            responses = utils.get_responses(client, thread_id, run_id)
             for response in responses:
                 # Append response to chat history
                 st.session_state["chat_history"].append(("assistant", response))
