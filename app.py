@@ -1,21 +1,19 @@
 import os
-from typing import Optional, Tuple, List, Any
-from dotenv import load_dotenv
+
 import streamlit as st
 from azure.ai.projects import AIProjectClient
 from azure.identity import DefaultAzureCredential
-from azure.ai.agents.models import ListSortOrder
+from dotenv import load_dotenv
+
 from streamlit_styles import apply_style_background, apply_style_blur
 from utils import *
 
 if is_local():
     load_dotenv()
 
+
 def main() -> None:
-    st.set_page_config(
-        page_title="Dinner Generator",
-        page_icon ="🍲"
-    )
+    st.set_page_config(page_title="Dinner Generator", page_icon="🍲")
 
     apply_style_background()
     apply_style_blur()
@@ -33,7 +31,6 @@ def main() -> None:
             if hasattr(st, "experimental_rerun"):
                 st.experimental_rerun()
 
-    
     st.title("AI Dinner Planning Agent")
 
     agent_id = os.getenv("dingen_agent_id")
@@ -50,30 +47,31 @@ def main() -> None:
     except Exception as e:
         st.error(f"Failed to create Azure client: {e}")
         return
-    
-    if 'chat_history' not in st.session_state:
-        st.session_state['chat_history'] = []
 
-    user_input = st.chat_input("Hi! Let's plan your dinners 😀. Enter your requests here ...")
+    if "chat_history" not in st.session_state:
+        st.session_state["chat_history"] = []
 
-    
+    user_input = st.chat_input(
+        "Hi! Let's plan your dinners 😀. Enter your requests here ..."
+    )
+
     if user_input:
         # Display user message in chat
-        st.session_state['chat_history'].append(('user', user_input))
+        st.session_state["chat_history"].append(("user", user_input))
         # Send user message to agent and get a response
         thread_id, run_id = send_user_message(client, agent_id, user_input)
         if thread_id and run_id:
             responses = get_responses(client, thread_id, run_id)
             for response in responses:
                 # Append response to chat history
-                st.session_state['chat_history'].append(('assistant', response))
+                st.session_state["chat_history"].append(("assistant", response))
             # Display chat history
-            for role, message in st.session_state['chat_history']:
-                if role == 'user':
+            for role, message in st.session_state["chat_history"]:
+                if role == "user":
                     st.chat_message("user").markdown(message)
                 else:
                     st.chat_message("assistant").markdown(message)
-                    
-            
+
+
 if __name__ == "__main__":
     main()

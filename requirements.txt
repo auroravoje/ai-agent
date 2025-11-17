@@ -4,3 +4,5 @@ azure-identity
 azure-keyvault-secrets
 azure-ai-projects
 azure-ai-agents
+black
+isort
