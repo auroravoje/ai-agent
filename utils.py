@@ -7,12 +7,9 @@ from azure.ai.projects import AIProjectClient
 
 # Detect local vs deployed
 def is_local() -> bool:
-    """Return True when running in a local/dev environment.
-
-    The function checks the LOCAL_DEV environment variable and the presence
-    of a local .env file to determine whether the app is running locally.
-    """
-    return os.environ.get("LOCAL_DEV") == "1" or os.path.exists(".env")
+    """Return True when running in a local/dev environment."""
+    is_deployed = os.environ.get("DEPLOYED") == "1" or not os.path.exists(".env")
+    return not is_deployed
 
 
 def send_user_message(
@@ -80,19 +77,8 @@ def get_responses(client: AIProjectClient, thread_id: str, run_id: str) -> list[
 
 
 def safe_rerun() -> None:
-    """Attempt to rerun the Streamlit app, with a safe fallback.
-
-    Uses ``st.experimental_rerun()`` when available; otherwise calls
-    ``st.stop()`` which ends the current run and allows Streamlit to render a
-    fresh UI on the next interaction.
-    """
+    """Attempt to rerun the Streamlit app, with a safe fallback."""
     try:
-        # prefer the API if available
-        if hasattr(st, "experimental_rerun"):
-            st.experimental_rerun()
-        else:
-            # immediate safe fallback
-            st.stop()
+        st.experimental_rerun()
     except Exception:
-        # last-resort fallback
         st.stop()
