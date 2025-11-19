@@ -1,9 +1,9 @@
-from pathlib import Path
 import streamlit as st
 
 
 def apply_style_background():
-    st.markdown("""
+    st.markdown(
+        """
                 <style> 
                 .stApp { 
                     background: 
@@ -12,11 +12,14 @@ def apply_style_background():
                 no-repeat center center fixed; 
                 background-size: cover; } 
                 </style>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
+
 
 def apply_style_blur():
     st.markdown(
-    """
+        """
     <style>
     /* translucent overlay on whole app */
     .stApp, [data-testid="stAppViewContainer"] {
@@ -40,6 +43,5 @@ def apply_style_blur():
     }
     </style>
     """,
-    unsafe_allow_html=True,
-)
-
+        unsafe_allow_html=True,
+    )
