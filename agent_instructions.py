@@ -34,5 +34,3 @@ primary_description = """
 - Considers user's dietary preferences and season
 - Emails the finished plan and shopping list to user when user is happy.
 """
-
-
