@@ -1,0 +1,7 @@
+# requirements-mcp.txt
+mcp==1.1.2
+gspread==6.2.1
+oauth2client==4.1.3
+pandas==2.3.2
+python-dotenv==1.1.1
+fastapi==0.121.3
