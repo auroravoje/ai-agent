@@ -7,6 +7,7 @@ from azure.ai.projects import AIProjectClient
 from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
 
+import sheets_utils
 import utils
 from agent_instructions import primary_description, primary_instructions
 from streamlit_styles import apply_style_background, apply_style_blur
@@ -21,12 +22,15 @@ def main() -> None:
 
     apply_style_background()
     apply_style_blur()
-    recipes_data = utils.get_recipe_data()
-    dinner_history = utils.get_recipe_data(worksheet_index=2)
-    dinner_history_norm = utils.normalize_df_for_indexing(
+
+    recipes_data = sheets_utils.get_recipe_data()
+    dinner_history = sheets_utils.get_recipe_data(worksheet_index=2, limit=14)
+    dinner_history_norm = sheets_utils.normalize_df_for_indexing(
         dinner_history, source="dinner_history"
     )
-    recipes_data_norm = utils.normalize_df_for_indexing(recipes_data, source="recipes")
+    recipes_data_norm = sheets_utils.normalize_df_for_indexing(
+        recipes_data, source="recipes"
+    )
     combined_df = pd.concat(
         [recipes_data_norm, dinner_history_norm], ignore_index=True, sort=False
     )
@@ -41,7 +45,7 @@ def main() -> None:
     # Initialize agent + vector store + file once per Streamlit session
     if "agent_id" not in st.session_state:
         # create a temp json and upload + create vector store
-        json_path = utils.df_to_temp_json(combined_df, ndjson=True)
+        json_path = sheets_utils.df_to_temp_json(combined_df, ndjson=True)
         file = project_client.agents.files.upload(
             file_path=json_path, purpose=FilePurpose.AGENTS
         )
