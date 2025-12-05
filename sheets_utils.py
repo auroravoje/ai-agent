@@ -11,14 +11,21 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 
 def _materialize_service_account_file() -> str:
-    """
-    Return a filesystem path to the Google service account JSON.
+    """Return a filesystem path to the Google service account JSON.
+
     Accepts any of these:
       1. google_app_credentials points to an existing file path.
       2. google_app_credentials holds raw JSON (starts with '{').
       3. google_app_credentials holds base64 of the JSON.
       4. google_app_credentials_json (alt var) with raw or base64 JSON.
+
     Writes a temp file if needed (cached in st.session_state to avoid duplicates).
+
+    Returns:
+        Filesystem path to the service account JSON file.
+
+    Raises:
+        ValueError: If service account key is not provided or invalid.
     """
     cache_key = "_svc_acct_path"
     if cache_key in st.session_state:
@@ -120,8 +127,6 @@ def get_recipe_data(
         raise ValueError(
             "Google service account key file path is not provided (google_app_credentials)."
         )
-    if not sheet_id:
-        raise ValueError("Google sheet id is not provided (google_sheet_id).")
 
     # Google Sheets scope
     scope = [
@@ -157,19 +162,16 @@ def get_recipe_data(
         else:
             # Get header
             header = all_values[0]
-            # Get last N data rows
-            total_data_rows = len(all_values) - 1  # exclude header
+            # Get last N data rows, exclude header
+            total_data_rows = len(all_values) - 1
             if total_data_rows <= limit:
-                # If we have fewer rows than limit, take all
+                # If fewer rows than limit, take all
                 data_rows = all_values[1:]
             else:
-                # Take last N rows
                 data_rows = all_values[-(limit):]
 
             data = pd.DataFrame(data_rows, columns=header)
-    #####
     else:
-        # Get all records as DataFrame
         records = sheet.get_all_records()
         data = pd.DataFrame(records)
 
@@ -177,9 +179,15 @@ def get_recipe_data(
 
 
 def df_to_temp_json(df: pd.DataFrame, ndjson: bool = True) -> str:
-    """Serialize DataFrame to a temporary JSON file. Returns the file path.
-    - ndjson=True writes newline-delimited JSON (one JSON object per line).
-    - ndjson=False writes a single JSON array.
+    """Serialize DataFrame to a temporary JSON file.
+
+    Args:
+        df: DataFrame to serialize.
+        ndjson: If True, writes newline-delimited JSON (one JSON object per line).
+            If False, writes a single JSON array.
+
+    Returns:
+        The file path to the temporary JSON file.
     """
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
     if ndjson:
@@ -191,11 +199,20 @@ def df_to_temp_json(df: pd.DataFrame, ndjson: bool = True) -> str:
 
 
 def normalize_df_for_indexing(df: pd.DataFrame, source: str) -> pd.DataFrame:
-    """Return a DataFrame with a consistent schema for vector indexing:
+    """Return a DataFrame with a consistent schema for vector indexing.
+
+    The normalized DataFrame contains:
     - doc_id: stable string id
     - content: text to embed (concatenation of sensible text cols)
     - _source: marker for origin (recipes / dinner_history)
     - raw_metadata: dict of the original row values (kept for retrieval/filtering)
+
+    Args:
+        df: Input DataFrame to normalize.
+        source: Source identifier (e.g., 'recipes' or 'dinner_history').
+
+    Returns:
+        Normalized DataFrame with columns: doc_id, content, _source, raw_metadata.
     """
     df = df.copy()
     df["_source"] = source
@@ -225,7 +242,6 @@ def normalize_df_for_indexing(df: pd.DataFrame, source: str) -> pd.DataFrame:
         df["content"] = df.astype(str).agg(" ".join, axis=1)
     else:
         # Fill NaN, cast everything to str, then join
-        # df["content"] = df[text_cols].fillna("").astype(str).agg(" ".join, axis=1)
         df["content"] = (
             df[text_cols]
             .fillna("")
