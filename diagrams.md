@@ -3,6 +3,7 @@
 ### System Architecture
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#f0f0f0','primaryBorderColor':'#333'}}}%%
 graph TD
     subgraph "User Interface"
         Chat[Chat Interface]
