@@ -47,9 +47,9 @@ graph TD
     DataUtils --> SheetsUtils
     
     SheetsUtils --> GoogleSheets
-    GoogleSheets -.->|Recipe data loaded during<br/>agent initialization| SheetsUtils
-    SheetsUtils -.->|Converted to NDJSON| AgentUtils
-    AgentUtils -.->|Uploaded as file| VectorStore
+    GoogleSheets -->|Recipe data loaded during<br/>agent initialization| SheetsUtils
+    SheetsUtils -->|Converted to NDJSON| AgentUtils
+    AgentUtils -->|Uploaded as file| VectorStore
     
     ProjectClient --> Agent
     Agent --> VectorStore
@@ -58,10 +58,17 @@ graph TD
     ChatUtils --> SessionState
     AgentUtils --> SessionState
     
+    CleanupUtils -.->|Deletes| Agent
+    CleanupUtils -.->|Deletes| VectorStore
+    CleanupUtils -.->|Clears| SessionState
+    
+    linkStyle 16,17,18 stroke-dasharray: 5 5
+    
     style Agent fill:#0078d4,color:#fff
     style VectorStore fill:#0078d4,color:#fff
     style EmailAgent fill:#0078d4,color:#fff
     style GoogleSheets fill:#34a853,color:#fff
+    style CleanupUtils fill:#ff6b6b,color:#fff
 ```
 
 ### Data Flow - User Interaction
