@@ -18,7 +18,12 @@ if utils.is_local():
 
 
 def render_dinner_plan_page(project_client: AIProjectClient, agent_id: str) -> None:
-    """Render the dinner planning chat interface."""
+    """Render the dinner planning chat interface.
+
+    Args:
+        project_client: An initialized Azure AIProjectClient.
+        agent_id: The ID of the AI agent to use for chat interactions.
+    """
     st.title("🤖 AI Dinner Planning Agent 🫜")
 
     chat_utils.initialize_chat_history()
@@ -73,18 +78,15 @@ def main() -> None:
     apply_style_background()
     apply_style_blur()
 
-    # Check if cleanup was just performed
     if st.session_state.get("cleanup_done"):
         st.info(
             "Resources deleted. Please refresh the page to restart the application."
         )
         st.stop()
 
-    # Prepare data
     with st.spinner("Loading recipe data..."):
         recipes_data, dinner_history, combined_df = data_utils.prepare_recipe_data()
 
-    # Connect to Azure
     endpoint = os.getenv("dingen_azure_endpoint")
     if not endpoint:
         st.error(
@@ -97,21 +99,17 @@ def main() -> None:
         credential=DefaultAzureCredential(),
     )
 
-    # Get or create agent
     with st.spinner("Initializing AI agent..."):
         agent_id = agent_utils.get_or_create_agent(project_client, combined_df)
         agent = project_client.agents.get_agent(agent_id)
 
-    # Page selection
     page = st.sidebar.selectbox("Select a page", ["Create Dinner Plan", "View Recipes"])
 
-    # Render selected page
     if page == "Create Dinner Plan":
         render_dinner_plan_page(project_client, agent.id)
     else:
         render_recipe_viewer_page(recipes_data, dinner_history)
 
-    # Sidebar controls
     render_sidebar_controls(project_client)
 
 
