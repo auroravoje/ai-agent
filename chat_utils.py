@@ -115,7 +115,12 @@ def display_chat_history() -> None:
 
 
 def reset_conversation() -> None:
-    """Reset conversation state (thread, run, chat history)."""
+    """Reset conversation state (thread, run, chat history).
+    
+    This clears the current conversation UI state without deleting
+    the agent or its resources. The agent remains available for
+    new conversations.
+    """
     st.session_state.pop("thread_id", None)
     st.session_state.pop("run_id", None)
     st.session_state.pop("chat_history", None)
