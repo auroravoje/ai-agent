@@ -7,8 +7,25 @@ import streamlit as st
 from azure.ai.agents.models import ConnectedAgentTool, FilePurpose, FileSearchTool
 from azure.ai.projects import AIProjectClient
 
-import sheets_utils
+import data_utils
 from agent_instructions import primary_description, primary_instructions
+
+
+def get_or_create_agent(
+    project_client: AIProjectClient, combined_df: pd.DataFrame
+) -> str:
+    """Get existing agent or create new one.
+
+    Args:
+        project_client: Azure AI Project client.
+        combined_df: Combined and normalized recipe data.
+
+    Returns:
+        Agent ID string.
+    """
+    if "agent_id" not in st.session_state:
+        return initialize_agent(project_client, combined_df)
+    return st.session_state["agent_id"]
 
 
 def initialize_agent(project_client: AIProjectClient, combined_df: pd.DataFrame) -> str:
@@ -36,7 +53,7 @@ def initialize_agent(project_client: AIProjectClient, combined_df: pd.DataFrame)
         st.warning("Email agent not configured")
 
     # File upload and vector store
-    json_path = sheets_utils.df_to_temp_json(combined_df, ndjson=True)
+    json_path = data_utils.df_to_temp_json(combined_df, ndjson=True)
     file = project_client.agents.files.upload(
         file_path=json_path, purpose=FilePurpose.AGENTS
     )
@@ -68,20 +85,3 @@ def initialize_agent(project_client: AIProjectClient, combined_df: pd.DataFrame)
     st.session_state["vector_store_id"] = vector_store_id
 
     return agent_id
-
-
-def get_or_create_agent(
-    project_client: AIProjectClient, combined_df: pd.DataFrame
-) -> str:
-    """Get existing agent or create new one.
-
-    Args:
-        project_client: Azure AI Project client.
-        combined_df: Combined and normalized recipe data.
-
-    Returns:
-        Agent ID string.
-    """
-    if "agent_id" not in st.session_state:
-        return initialize_agent(project_client, combined_df)
-    return st.session_state["agent_id"]
