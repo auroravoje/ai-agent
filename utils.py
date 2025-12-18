@@ -16,9 +16,9 @@ def is_local() -> bool:
 def safe_rerun() -> None:
     """Attempt to rerun the Streamlit app, with a safe fallback.
 
-    Tries to use experimental_rerun, falls back to stop if that fails.
+    Tries to use st.rerun(), falls back to stop if that fails.
     """
     try:
-        st.experimental_rerun()
+        st.rerun()
     except Exception:
         st.stop()
