@@ -210,3 +210,7 @@ __pycache__/
 *.pyc
 output.tar.gz
 oryx-manifest.toml
+.env
+*.json
+!package.json
+credentials/
