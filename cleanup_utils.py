@@ -3,6 +3,8 @@
 import streamlit as st
 from azure.ai.projects import AIProjectClient
 
+import utils
+
 
 def cleanup_resources(project_client: AIProjectClient) -> dict[str, bool]:
     """Delete agent, vector store, and file.
@@ -19,7 +21,6 @@ def cleanup_resources(project_client: AIProjectClient) -> dict[str, bool]:
     agent_id = st.session_state.get("agent_id")
     if agent_id:
         try:
-            st.write(f"Attempting to delete agent: {agent_id}")
             project_client.agents.delete_agent(agent_id)
             deleted["agent"] = True
             st.write("✓ Agent deleted successfully")
@@ -30,7 +31,6 @@ def cleanup_resources(project_client: AIProjectClient) -> dict[str, bool]:
     vector_store_id = st.session_state.get("vector_store_id")
     if vector_store_id:
         try:
-            st.write(f"Attempting to delete vector store: {vector_store_id}")
             vs_client = project_client.agents.vector_stores
 
             # Try different delete methods
@@ -57,7 +57,6 @@ def cleanup_resources(project_client: AIProjectClient) -> dict[str, bool]:
     file_id = st.session_state.get("file_id")
     if file_id:
         try:
-            st.write(f"Attempting to delete file: {file_id}")
             project_client.agents.files.delete(file_id=file_id)
             deleted["file"] = True
             st.write("✓ File deleted successfully")
@@ -68,10 +67,10 @@ def cleanup_resources(project_client: AIProjectClient) -> dict[str, bool]:
 
 
 def cleanup_and_clear_session(project_client: AIProjectClient) -> None:
-    """Cleanup resources and clear all session state.
+    """Cleanup Azure resources and clear all session state.
 
-    Args:
-        project_client: Azure AI Project client.
+    This permanently deletes the agent, vector store, and files from
+    Azure, then clears all session state including conversation history.
     """
     # Show what we're about to delete
     resources_to_delete = []
@@ -87,8 +86,6 @@ def cleanup_and_clear_session(project_client: AIProjectClient) -> None:
     if not resources_to_delete:
         st.warning("No resources to delete.")
         return
-
-    st.info(f"Resources to delete: {', '.join(resources_to_delete)}")
 
     deleted = cleanup_resources(project_client)
 
@@ -111,4 +108,5 @@ def cleanup_and_clear_session(project_client: AIProjectClient) -> None:
     st.session_state["cleanup_done"] = True
 
     if success_count > 0:
-        st.success("Session cleared. Refresh the page to start fresh.")
+        st.success("Session cleared. Restarting application...")
+        utils.safe_rerun()
