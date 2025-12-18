@@ -7,18 +7,25 @@ import tempfile
 import gspread
 import pandas as pd
 import streamlit as st
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
 
 
 def _materialize_service_account_file() -> str:
-    """
-    Return a filesystem path to the Google service account JSON.
+    """Return a filesystem path to the Google service account JSON.
+
     Accepts any of these:
       1. google_app_credentials points to an existing file path.
       2. google_app_credentials holds raw JSON (starts with '{').
       3. google_app_credentials holds base64 of the JSON.
       4. google_app_credentials_json (alt var) with raw or base64 JSON.
+
     Writes a temp file if needed (cached in st.session_state to avoid duplicates).
+
+    Returns:
+        Filesystem path to the service account JSON file.
+
+    Raises:
+        ValueError: If service account key is not provided or invalid.
     """
     cache_key = "_svc_acct_path"
     if cache_key in st.session_state:
@@ -73,7 +80,6 @@ def _materialize_service_account_file() -> str:
 
 @st.cache_resource
 def get_recipe_data(
-    key_file: str | None = None,
     sheet_id: str | None = None,
     worksheet_index: int = 0,
     limit: int | None = None,
@@ -86,9 +92,6 @@ def get_recipe_data(
     ``st.cache_resource`` to avoid repeated auth calls during a session.
 
     Args:
-        key_file: Optional path to the service account JSON key file. If not
-            provided the environment variable ``google_app_credentials`` is
-            used.
         sheet_id: Optional Google Sheets ID. If not provided the environment
             variable ``google_sheet_id`` is used.
         worksheet_index: Index of the worksheet/tab to read (0-based).
@@ -104,11 +107,7 @@ def get_recipe_data(
         ValueError: If required identifiers are missing.
         Exception: Other errors from the Google API will propagate.
     """
-    KEY_FILE = (
-        key_file
-        or os.getenv("google_app_credentials")
-        or os.getenv("google_app_credentials_json")
-    )
+
     sheet_id = sheet_id or os.getenv("google_sheet_id")
 
     if not sheet_id:
@@ -116,17 +115,10 @@ def get_recipe_data(
 
     KEY_FILE = _materialize_service_account_file()
 
-    if not KEY_FILE:
-        raise ValueError(
-            "Google service account key file path is not provided (google_app_credentials)."
-        )
-    if not sheet_id:
-        raise ValueError("Google sheet id is not provided (google_sheet_id).")
-
     # Google Sheets scope
-    scope = [
-        "https://spreadsheets.google.com/feeds",
-        "https://www.googleapis.com/auth/drive",
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets.readonly",
+        "https://www.googleapis.com/auth/drive.readonly",
     ]
 
     # Authenticate
@@ -135,7 +127,7 @@ def get_recipe_data(
             f"Google service account key file not found: {KEY_FILE}"
         )
 
-    credentials = ServiceAccountCredentials.from_json_keyfile_name(KEY_FILE, scope)
+    credentials = Credentials.from_service_account_file(KEY_FILE, scopes=scopes)
     client = gspread.authorize(credentials)
 
     # Open the sheet and select worksheet by index
@@ -157,45 +149,37 @@ def get_recipe_data(
         else:
             # Get header
             header = all_values[0]
-            # Get last N data rows
-            total_data_rows = len(all_values) - 1  # exclude header
+            # Get last N data rows, exclude header
+            total_data_rows = len(all_values) - 1
             if total_data_rows <= limit:
-                # If we have fewer rows than limit, take all
+                # If fewer rows than limit, take all
                 data_rows = all_values[1:]
             else:
-                # Take last N rows
                 data_rows = all_values[-(limit):]
 
             data = pd.DataFrame(data_rows, columns=header)
-    #####
     else:
-        # Get all records as DataFrame
         records = sheet.get_all_records()
         data = pd.DataFrame(records)
 
     return data
 
 
-def df_to_temp_json(df: pd.DataFrame, ndjson: bool = True) -> str:
-    """Serialize DataFrame to a temporary JSON file. Returns the file path.
-    - ndjson=True writes newline-delimited JSON (one JSON object per line).
-    - ndjson=False writes a single JSON array.
-    """
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
-    if ndjson:
-        # orient='records' + lines=True produces NDJSON
-        df.to_json(tmp.name, orient="records", lines=True, force_ascii=False)
-    else:
-        df.to_json(tmp.name, orient="records", force_ascii=False)
-    return tmp.name
-
-
 def normalize_df_for_indexing(df: pd.DataFrame, source: str) -> pd.DataFrame:
-    """Return a DataFrame with a consistent schema for vector indexing:
+    """Return a DataFrame with a consistent schema for vector indexing.
+
+    The normalized DataFrame contains:
     - doc_id: stable string id
     - content: text to embed (concatenation of sensible text cols)
     - _source: marker for origin (recipes / dinner_history)
     - raw_metadata: dict of the original row values (kept for retrieval/filtering)
+
+    Args:
+        df: Input DataFrame to normalize.
+        source: Source identifier (e.g., 'recipes' or 'dinner_history').
+
+    Returns:
+        Normalized DataFrame with columns: doc_id, content, _source, raw_metadata.
     """
     df = df.copy()
     df["_source"] = source
@@ -207,13 +191,13 @@ def normalize_df_for_indexing(df: pd.DataFrame, source: str) -> pd.DataFrame:
 
     # choose text columns to combine into `content` (common recipe-like candidates)
     candidates = [
-        "Rett",
-        "Tidsforbruk min",
-        "Lenke",
-        "Sesong",
-        "Preferanse",
-        "uke",
-        "dag",
+        "Recipe",
+        "Time, minutes",
+        "Link",
+        "Season",
+        "Preference",
+        "week",
+        "day",
     ]
     text_cols = [c for c in candidates if c in df.columns]
     if not text_cols:
@@ -225,7 +209,6 @@ def normalize_df_for_indexing(df: pd.DataFrame, source: str) -> pd.DataFrame:
         df["content"] = df.astype(str).agg(" ".join, axis=1)
     else:
         # Fill NaN, cast everything to str, then join
-        # df["content"] = df[text_cols].fillna("").astype(str).agg(" ".join, axis=1)
         df["content"] = (
             df[text_cols]
             .fillna("")
