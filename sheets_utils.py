@@ -7,7 +7,7 @@ import tempfile
 import gspread
 import pandas as pd
 import streamlit as st
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
 
 
 def _materialize_service_account_file() -> str:
@@ -80,7 +80,6 @@ def _materialize_service_account_file() -> str:
 
 @st.cache_resource
 def get_recipe_data(
-    key_file: str | None = None,
     sheet_id: str | None = None,
     worksheet_index: int = 0,
     limit: int | None = None,
@@ -93,9 +92,6 @@ def get_recipe_data(
     ``st.cache_resource`` to avoid repeated auth calls during a session.
 
     Args:
-        key_file: Optional path to the service account JSON key file. If not
-            provided the environment variable ``google_app_credentials`` is
-            used.
         sheet_id: Optional Google Sheets ID. If not provided the environment
             variable ``google_sheet_id`` is used.
         worksheet_index: Index of the worksheet/tab to read (0-based).
@@ -111,11 +107,7 @@ def get_recipe_data(
         ValueError: If required identifiers are missing.
         Exception: Other errors from the Google API will propagate.
     """
-    KEY_FILE = (
-        key_file
-        or os.getenv("google_app_credentials")
-        or os.getenv("google_app_credentials_json")
-    )
+
     sheet_id = sheet_id or os.getenv("google_sheet_id")
 
     if not sheet_id:
@@ -123,15 +115,10 @@ def get_recipe_data(
 
     KEY_FILE = _materialize_service_account_file()
 
-    if not KEY_FILE:
-        raise ValueError(
-            "Google service account key file path is not provided (google_app_credentials)."
-        )
-
     # Google Sheets scope
-    scope = [
-        "https://spreadsheets.google.com/feeds",
-        "https://www.googleapis.com/auth/drive",
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets.readonly",
+        "https://www.googleapis.com/auth/drive.readonly",
     ]
 
     # Authenticate
@@ -140,7 +127,7 @@ def get_recipe_data(
             f"Google service account key file not found: {KEY_FILE}"
         )
 
-    credentials = ServiceAccountCredentials.from_json_keyfile_name(KEY_FILE, scope)
+    credentials = Credentials.from_service_account_file(KEY_FILE, scopes=scopes)
     client = gspread.authorize(credentials)
 
     # Open the sheet and select worksheet by index
@@ -178,26 +165,6 @@ def get_recipe_data(
     return data
 
 
-def df_to_temp_json(df: pd.DataFrame, ndjson: bool = True) -> str:
-    """Serialize DataFrame to a temporary JSON file.
-
-    Args:
-        df: DataFrame to serialize.
-        ndjson: If True, writes newline-delimited JSON (one JSON object per line).
-            If False, writes a single JSON array.
-
-    Returns:
-        The file path to the temporary JSON file.
-    """
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
-    if ndjson:
-        # orient='records' + lines=True produces NDJSON
-        df.to_json(tmp.name, orient="records", lines=True, force_ascii=False)
-    else:
-        df.to_json(tmp.name, orient="records", force_ascii=False)
-    return tmp.name
-
-
 def normalize_df_for_indexing(df: pd.DataFrame, source: str) -> pd.DataFrame:
     """Return a DataFrame with a consistent schema for vector indexing.
 
@@ -224,13 +191,13 @@ def normalize_df_for_indexing(df: pd.DataFrame, source: str) -> pd.DataFrame:
 
     # choose text columns to combine into `content` (common recipe-like candidates)
     candidates = [
-        "Rett",
-        "Tidsforbruk min",
-        "Lenke",
-        "Sesong",
-        "Preferanse",
-        "uke",
-        "dag",
+        "Recipe",
+        "Time, minutes",
+        "Link",
+        "Season",
+        "Preference",
+        "week",
+        "day",
     ]
     text_cols = [c for c in candidates if c in df.columns]
     if not text_cols:
