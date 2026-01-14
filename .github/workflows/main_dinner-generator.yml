@@ -32,6 +32,12 @@ jobs:
       - name: Install dependencies with uv
         run: |
           uv sync
+      
+      - name: Verify uv.lock exists
+        run: |
+          echo "Checking for uv.lock and pyproject.toml..."
+          ls -la uv.lock pyproject.toml
+          echo "uv.lock size: $(wc -c < uv.lock) bytes"    
 
       # Production should have passing tests
       - name: Run tests
