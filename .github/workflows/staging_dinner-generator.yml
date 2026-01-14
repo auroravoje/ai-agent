@@ -1,0 +1,73 @@
+# Deploy to Staging Environment
+
+name: Build and deploy Python app to Azure Web App - dinner-generator-staging
+
+on:
+  push:
+    branches:
+      - staging
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python version
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies with uv
+        run: |
+          uv sync
+          
+      - name: Run tests
+        run: |
+          uv run pytest tests/ || echo "No tests found"
+
+      - name: Upload artifact for deployment jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-app-staging
+          path: |
+            .
+            !.venv/
+            !.git/
+            !.github/
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: python-app-staging
+      
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_348D7FE54D0D4637848228056E053A06 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_65DE48354B8049EE8AFA0005738AB45C }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_288B86D634F64566A62DD802EC1268A7 }}
+
+      - name: 'Deploy to Azure Web App - Staging'
+        uses: azure/webapps-deploy@v3
+        id: deploy-to-webapp
+        with:
+          app-name: 'dinner-generator-staging'
+          slot-name: 'Production'

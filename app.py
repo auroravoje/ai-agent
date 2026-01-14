@@ -1,4 +1,5 @@
 import os
+import warnings
 
 import pandas as pd
 import streamlit as st
@@ -15,6 +16,14 @@ from streamlit_styles import apply_style_background, apply_style_blur
 
 if utils.is_local():
     load_dotenv()
+    # Use corporate CA bundle for SSL verification
+    corp_cert_path = os.path.expanduser(os.getenv("CORP_CERT_PATH", ""))
+    if corp_cert_path and os.path.exists(corp_cert_path):
+        os.environ['SSL_CERT_FILE'] = corp_cert_path
+        os.environ['REQUESTS_CA_BUNDLE'] = corp_cert_path
+        os.environ['CURL_CA_BUNDLE'] = corp_cert_path
+    else:
+        warnings.warn("Corporate certificate bundle not found.")
 
 
 def render_dinner_plan_page(project_client: AIProjectClient, agent_id: str) -> None:
@@ -84,9 +93,7 @@ def main() -> None:
         )
         st.stop()
 
-    with st.spinner("Loading recipe data..."):
-        recipes_data, dinner_history, combined_df = data_utils.prepare_recipe_data()
-
+    
     endpoint = os.getenv("dingen_azure_endpoint")
     if not endpoint:
         st.error(
@@ -94,10 +101,23 @@ def main() -> None:
         )
         st.stop()
 
-    project_client = AIProjectClient(
-        endpoint=endpoint,
-        credential=DefaultAzureCredential(),
-    )
+    # Configure SSL certificate for local development
+    connection_kwargs = {
+        "endpoint": endpoint,
+        "credential": DefaultAzureCredential(),
+    }
+    
+    if utils.is_local():
+        corp_cert_path = os.path.expanduser(os.getenv("CORP_CERT_PATH", ""))
+        if corp_cert_path and os.path.exists(corp_cert_path):
+            connection_kwargs["connection_verify"] = corp_cert_path
+        else:
+            st.warning("⚠️ Corporate certificate not found. SSL verification may fail.")
+    
+    project_client = AIProjectClient(**connection_kwargs)
+
+    with st.spinner("Loading recipe data..."):
+        recipes_data, dinner_history, combined_df = data_utils.prepare_recipe_data()
 
     with st.spinner("Initializing AI agent..."):
         agent_id = agent_utils.get_or_create_agent(project_client, combined_df)
