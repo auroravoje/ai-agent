@@ -39,7 +39,6 @@ jobs:
           ls -la uv.lock pyproject.toml
           echo "uv.lock size: $(wc -c < uv.lock) bytes"    
 
-      # Production should have passing tests
       - name: Run tests
         run: |
           uv run pytest tests/ || echo "No tests found"
@@ -66,6 +65,15 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: python-app
+      
+      - name: Debug - Check downloaded files
+        run: |
+          echo "Files in artifact:"
+          ls -la
+          echo "Checking for uv.lock:"
+          ls -la uv.lock || echo "uv.lock NOT FOUND!"
+          echo "Checking for pyproject.toml:"
+          ls -la pyproject.toml || echo "pyproject.toml NOT FOUND!"
       
       - name: Login to Azure
         uses: azure/login@v2
