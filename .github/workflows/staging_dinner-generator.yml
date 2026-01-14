@@ -30,6 +30,12 @@ jobs:
       - name: Install dependencies with uv
         run: |
           uv sync
+      
+      - name: Verify uv.lock exists
+        run: |
+          echo "Checking for uv.lock and pyproject.toml..."
+          ls -la uv.lock pyproject.toml
+          echo "uv.lock size: $(wc -c < uv.lock) bytes"
           
       - name: Run tests
         run: |
@@ -57,6 +63,15 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: python-app-staging
+      
+      - name: Debug - Check downloaded files
+        run: |
+          echo "Files in artifact:"
+          ls -la
+          echo "Checking for uv.lock:"
+          ls -la uv.lock || echo "uv.lock NOT FOUND!"
+          echo "Checking for pyproject.toml:"
+          ls -la pyproject.toml || echo "pyproject.toml NOT FOUND!"
       
       - name: Login to Azure
         uses: azure/login@v2
