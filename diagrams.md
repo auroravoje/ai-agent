@@ -157,6 +157,8 @@ graph LR
     
     style App fill:#ff6b6b
     style Azure fill:#0078d4,color:#fff
+```
+
 ### Deployment with Azure Web Apps
 
 ```mermaid
