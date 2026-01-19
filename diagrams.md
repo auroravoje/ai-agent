@@ -157,5 +157,21 @@ graph LR
     
     style App fill:#ff6b6b
     style Azure fill:#0078d4,color:#fff
-    style Google fill:#34a853,color:#fff
+### Deployment with Azure Web Apps
+
+```mermaid
+graph LR
+    A[GitHub Repo<br/>Your Code] --> B[GitHub Actions<br/>CI/CD]
+    B --> C[Azure Web App<br/>Oryx Build]
+    C --> D[Running App<br/>Production]
+    
+    A -.->|1. Push/PR merge<br/>triggers workflow| B
+    B -.->|2. Build artifact<br/>ZIP| C
+    C -.->|3. Deploy &<br/>start app| D
+    
+    style A fill:#333,color:#fff
+    style B fill:#2088ff,color:#fff
+    style C fill:#0078d4,color:#fff
+    style D fill:#28a745,color:#fff
 ```
+
